@@ -1,0 +1,121 @@
+        CURSO TYPESCRIPT AVANZADO: MAS ALLÁ DE ANY BY CODELY
+
+      VIDEO 01 5 FEATURES INTERESANTES
+
+1 - Puedo definir mis enums como constantes(de echo debería,entiendo).A nivel de uso no hay ninguna diferencia, pero sí a nivel de transpilador:
+
+// NOTE typescript siempre transpila a Javascript(con "use strict").Si definimos un enum sin la keyword const se creará una función de JS bastante extensa,con mucho narrowing por indices.Al poner el const cambiar bastante el código transpilado,es mucho menos verboso(es un simple switch)
+const enum StepType {
+  QUIZ,
+  VIDEO,
+  CHALLENGUE
+} <- esto compila a una función tres veces más pequeña
+Si bien el resultado no influirá mucho desde luego es mejor usar las enums como constantes
+
+2- Exhaustividad con switch cases: gracias a la funcion assertNever(value:never){} puedo asegurarme que itero por todos los cases de un switch:
+
+export const enum CourseCategory {
+  FRONTEND = "FRONTEND",
+  BACKEND = "BACKEND",
+  BEST_PRACTICES = "BEST_PRACTICES",
+}
+
+
+const frontendCourseCategory = CourseCategory.BEST_PRACTICES;
+
+export function print(courseCategory: CourseCategory) {
+  switch (courseCategory) {
+    case CourseCategory.FRONTEND:
+      return "This is the frontend course category";
+    case CourseCategory.BACKEND:
+      return "This is the backend course category";
+    // If I remove this case it will throw a compile time error due to the assertNever fn
+    case CourseCategory.BEST_PRACTICES:
+      return "This is the backend course category";
+    // aqui gracias al narrowing que hará el transpilador si no paso por todos los cases la función assertNever no va a recibir un valor de tipo never(sino que recibirá el valor que falte)y petará
+    default:
+      assertNever(courseCategory)
+  }
+}
+
+function assertNever(value:never){
+  // We will also get an error in runtime because we are throwing an exception in assertNever method
+  throw new Error(`Unhandled discriminated union member: ${JSON.stringify(value)}`)
+}
+
+print(frontendCourseCategory)
+Investigar hasta que punto está ligado esto a que sea una enum.Parece bastante útil y sencillo asegurarme en tiempo de desarrollo que iteramos por todos los casos del switch
+NOTA: esto se conoce como estructuras selladas de datos en otros lenguajes como Kotlin(que parece que lo harán de una forma más natural o sencilla).En Typescript podemos condicionar iterar por todos los cases de un switch de forma muy sencilla
+
+03: useful utility types: se crean un tipo que admite un Generico y saca sus valores primitivos.Ta jodio el código
+
+04: TS es mentira: TS no sólo no compila las interfaces,sino que keywords como private o readonly al definir una clase tmb son mentira:
+
+export class Codelyber {
+  private GREETING = "Hi";
+
+  constructor(private readonly name: string) {}
+
+  greet(): string {
+    return `${this.GREETING} ${this.name} from Codely TypeScript Basic Skeleton!`;
+  }
+} <- Todo esto va a compilar a 
+export class Codelyber{
+  constructor(name){
+    this.name=name;
+    this.GRETING= "Hi
+  }
+}
+Se fuma todos los modificadores de acceso.Asi pues las propiedades solo son privadas en tiempo de desarrollo.No existe esto en Javascript.
+De todas formas mientras lo sean en tiempo de desarrollo es suficiente para no poder acceder a ellas(ya que da error el transpilador,etc)
+
+05-El tsConfig es hiperconfigurable: debo saber que Typescript es muy configurable,puedo hacer que el transpilador borre todos los comentarios,por ejemplo
+Como resumen hasta ahora, debería definir las enums como constantes, puedo forzar a iterar por todos los cases y Satisfies parece superútil para evitar narrowing
+
+TIP: puedo evitar un switch con un Map
+
+export const enum CourseCategory {
+  FRONTEND = "FRONTEND",
+  BACKEND = "BACKEND",
+  BEST_PRACTICES = "BEST_PRACTICES",
+}
+
+const print = (courseCategory:CourseCategory) => {
+  // que asco de pros :(
+  const OPTIONS:{[key in CourseCategory]:string} = {
+    BACKEND:"this is the frontend",
+    FRONTEND:"this is the frontend",
+    BEST_PRACTICES:""
+  }
+}
+En el momento que le ponga las keys de OPTIONS como [key in enum] tendré que iterar por todas(en resumen un switch lo puedo cambiar por un Map)
+Desde luego tengo mucho que aprender
+
+        VIDEO 02 DE JAVASCRIPT A TYPESCRIPT
+
+Fijate que ese curso tmb sería interesante hacerlo.
+Structural typing: cuando le paso un obj que cumple con la interfaz:
+
+interface User {
+  name:string;
+  age:number
+}
+
+const Paca = {name:"Paca",age:34} as User; <- structural typing,esto es valido ya que el objeto literal cumple la interfaz
+NOTA: esto simplemente es para no hacer el new User de otros lenguajes, al final una instancia de clase es un objeto, en TS simplemente es un obj, aunque no es una instancia,etc
+
+TIP strictNullChecks diria que tengo que ponerlo a true siempre.No tiene sentido dejar posibles undefined o nulls como retorno
+
+Type Assertion: document.getElementById("ksdfjlks") as HTMLInputElement; <- casteo super hardcore as Lady Gaga
+
+Definition Types: si bien lo más normal es que las librerias de Js den soporte a TS siempre puedo crearme un modulo/archivo de definición de tipos.Puede que si la lib es muy pequeña tenga que hacerlo.Ojo, el archivo pisa a los types de la libreria, tiene más preferencia
+
+index.d.ts
+declare module "axios" {
+  interface AxiosResponse {
+    fakeData: any; <- esto va a pisar a la lib,asinto
+  }
+}
+
+      VIDEO 03 INTERFACES VS TYPE ALIAS
+

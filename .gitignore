@@ -1,0 +1,5 @@
+# ignore node_modules recursively(ojo,si pongo /node_modules paro la recursividad(node_modules o node_modules/ es lo mismo,es recursivo)
+node_modules/
+
+# ignore .env recursively
+.env/

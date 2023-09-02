@@ -1,0 +1,773 @@
+
+
+Repo: https://github.com/CodelyTV/frontend-hexagonal_architecture-course/tree/main/01-hexagonal_architecture_in_frontend/1-hexagonal_architecture_in_10_minutes
+
+La arquitectura hexagonal es un patrón de arquitectura de software que nos ayuda a tener un codigo mantenible,escalable y testeable.Esta englobada en las denominadas 'arquitecturas limpias' que se caracterizan por separar la lógica de nuestro dominio de la capa de infraestructura o aplicación.
+Se debe acompañar de Vertical Slicing y Screaming Architecture
+
+Se compone de tres capas:
+La capa de infraestructura: esta capa contiene los detalles de implementaciones concretas,como las llamadas a una API, bases de datos,... cualquier cosa que toque entrada y salida
+La capa de aplicación: esta capa se encarga de la comunicación entre la capa de dominio y el mundo exterior,lo que denominamos casos de uso (crear un usuario,hacer login,hacer logout,...)
+La capa de dominio: es la capa más importante, contiene la lógica de negocio central de la aplicación,y define las reglas de negocio. No depende de ninguna otra capa y puede contener cosas como tipos,interfaces o funciones de validación(aqui habrá conceptos como un User, un Id o cualquier ValueObject e incluso las interfaces de nuestro repositorio,fijate que todo esto es para tipar).
+Las dependencias deben apuntar hacia el interior de las carpetas(es decir,las capas inferiores deben definir las interfaces que las capas superior puedan usar/reclamar)
+
+TIP: estas capas van acompañadas de una regla de dependencia que va desde fuera hacia adentro(la de afuera depende/conoce a las de dentro).Es decir,infraestructura puede conocer detalles de aplicación o dominio, aplicación puede conocer detalles de dominio pero no de infraestructura y dominio solo puede conocerse a si misma.Básicamente esto se traduce en que desde dominio nunca voy a poder importar ni aplicación ni infraestructura y desde aplicación nunca podré importar infraestructura(pero si a ella y a dominio ) y obviamente infraestructura puede importar lo que quiera.
+
+NOTA: el héxagono se puso por que tiene muchos lados y picos,pero carece de sentido que sea un hexágono.Es mucho más acertado usar el nombre de "Puertos y Adaptadores".
+IMPORTANTE: todo esto al final se traduce en una estructura de carpetas a la hora de arquitecturar una aplicación de software.Habrá tres carpetas principales( 'application', 'domain' e 'infrastructure') de las que colgaria todo.
+
+NOTA: si aplicamos arquitectura Hexagonal por si sola no vamos a conseguir esa clean arquitecture que queremos. Aqui entra el concepto de Vertical Slicing en juego,ya que obviamente que cuelgue todo de 3 carpetas va a quedar una aplicación inmantenible.
+
+Vertical Slicing: consiste en dividir el sistema en funcionalidades verticales completas,que atraviesan todas las capas de la arquitectura hexagonal (no es más que imaginarme el hexágono(o circulo) de la arquitectura hexagonal como si fuera un pastelito que puedo cortar. Cada trozo va a representar una entidad o agregado (un conjunto de caracteristicas que proporcionan un valor tangible al usuario y que se implementa de forma independiente),en resumen, algo que tenga sentido para negocio.Por ejemplo Courses,Teachers,Students,Products,etc...
+
+Ojo, la entidad va primero, y dentro de cada entidad van las 3 capas:
+
+app/
+|_Courses/ <- Entidad
+  |_application/  <- capas
+  |_domain/
+  |_infrastructure/
+|_Teachers/ <- Entidad
+  |_application/ <- capas
+  |_domain/
+  |_infrastructure/
+
+Tmb hay gente que lo hace al revés,deja las 3 capas afuera y dentro segrega por Entidades.Desde Codely creen que es un error esta forma de usar Vertical Slicing. Esto me parece un error a mi tmb,ya que queda más claro cuando estas trabajando que tienes que crear una nueva Entidad y luego ya iras rellenando las capas
+
+TIP: invertir las dependencias normalmente significa pasar un repositorio por parámetro(fijate que lo haré en React).Pegar un repaso a este principio.
+
+IMPORTANTE: usar la forma de primero entidades,y cada una con sus tres capas me permitiria solo con arrastar esa carpeta pasar todo ese 'bloque'.Esta forma deja un código más cohexionado y mantenible(lo mismo si ya no tuviera Courses borro una carpeta solo).Con la forma segunda habrá referencias cruzadas,etc y tendré que ir por cada capa.
+
+Screaming arquitecture(arquitectura que te grita al careto): porqué necesito esto tmb? Porque dentro de la capa las cosas podrían ir creciendo más(lo harán de echo).Entonces podemos aplicar el mismo concepto de vertical slicing dentro de la capa(por ejemplo dentro de la entidad/agregado Auth tengo los casos de uso de login/register y de logout,me quedaría algo asi:)
+
+app/
+  |_Auth/
+    |_application/
+      |_logout/ <- Screaming arquitecture
+      |_login/ <- Screaming arquitecture
+      |_register/ <- Screaming arquitecture
+    |_domain/
+
+La navegabilidad del código es brutal.Si la aplicación es muy pequeña podria valerme con Vertical Slicing,pero a la que crezca es indispensable usar Screaming Arquitecture tmb
+NOTA: la Screaming Arquitecture se llama asi porque nos está "gritando" que somos un logout o un login,no que somos un ComandHandler o un ExpectionHandler que realmente no sé lo que es(además de nuevo esto no favorece la cohexión sino que la rompe).Desde luego tiene toda la pinta de que tener un front con arquitectura hexagonal      
+
+Notas de gente desconocida random:
+Lo del nombre de hexagonal yo siempre había oído que era por el tema de que cada hexágono se conecta con otros a través de los puertos y adaptadores y si pones varios hexágonos las figuras se acoplan bien (vamos, que el concepto viene del plano visual) <- pues tiene bastante sentido,claro que podria estar inventandoselo
+
+      VIDEO 02 HAY LOGICA DE NEGOCIO EN FRONT??
+
+Tradicionalmente la arquitectura hexagonal siempre se ha aplicado en el backend.Sin embargo,en los ultimos años ciertas aplicaciones si que pasan lógica al frontend,por ejemplo GitHub(en el caso de uso de crear una Issue,el front se asegura de que no se pueda crear una issue sin titulo).Aunque se valide en el backend,esta lógica vive también en el frontend.
+Nuria y el pelanas explican muy bien que incluso hay interrelación con un dominio User,ya que tenemos que asignar la issue a un User, y ojo, no es lo mismo el User de la cuenta de GitHub({id:"sfsf",username:"rgomez",image_url}) que tiene 3 propiedades que el User al que hay que asignar(o resultante de asignar) la issue, que tendrá más propiedades.
+
+Podria parecer que podemos crear una interface con campos nullables segun tenga una issue o no,pero nos obligaria a añadir más condiciones y lo hace complicado de mantener:
+
+export interface User {
+    id: UUID;
+    username: string;
+    imageUrl: URL;
+    name: string | null;
+    status: string | null;
+}
+
+Desde Codely recomiendan crear interfaces distintas:
+
+export interface User {
+    id: UUID; <- fijate ya en los Value Objects
+    username: string;
+    imageUrl: URL;
+}
+
+export interface Assignee {
+  id: UUID;
+  username:string;
+  imageUrl: URL;
+  name: string;
+  status: string;
+}
+Este tipo de decisiones son las que les hacen inclinarse por decir que si que hay lógica en el frontend
+IMPORTANTE: fijate como las interfaces User,Asignee o Issue serían de la capa del dominio, pero la interface CreateIssue que es para el caso de uso es de la capa de aplicación
+NOTA: tmb recalcan que el framework a usar pertenece a la capa de infraestructura por naturaleza,pero esto es realmente asi? Debe pertenecer a esa capa?
+
+    VIDEO 03 COMO ENCAJAN REACT,VUE,ANGULAR,... O CUALQUIER FRAMEWORK CON LA ARQUITECTURA HEXAGONAL
+
+Al usar arquitectura hexagonal se busca separar la lógica de negocio de la lógica de UI(mostrar/ocultar elementos,tratar con inputs,...)
+Si separamos la aplicación en 3 capas me quedará la duda de si esta lógica de UI que es de la que se encarga el framework es dominio,aplicación o infraestructura
+Podriamos considerarlo infraestructura ya que el framework es una dependencia externa.Pero como veré más adelante, durante el testing será nuestro punto de entrada en los test unitarios,algo que tradicionalmente ha sido la capa de aplicación.
+Además,las peculiaridades de los frameworks a menudo nos pueden limitar la estructura de nuestra aplicación, por ejemplo, forzando que haya un fichero main.ts dentro de la carpeta src
+
+En cuanto a un ejemplo en React diriamos que la View es infraestructura,sus componentes y casos de uso son aplicación.En la implementación/desarrollo de esos casos de uso necesitaré objetos de dominio(un Repository,un User,etc) que obviamente son de la capa de dominio.Fijate que la implementación de ese Repository es de la capa de infraestructura(esto no lo pillo bien)
+Y en cuanto a la estructura de carpetas en una aplicación de React,si bien podriamos hacer eject, prefieren aceptar que vendrá todo dentro de 'src' y despues parece que abren dos carpetas llamadas 'modules' y 'sections'.En modules es donde va a estar toda la lógica.En sections parece que van todos los componentes y sería la capa de application.
+Parece muy confuso e interpretable todo,mejor no sacar opiniones sobre esto y amoldarme al proyecto y al equipo de front correspondiente
+
+NOTA IMPORTANTE: Error conceptual de arquitectura hexagonal
+En mi opinión, considerar componentes y hooks de React como parte de la capa de aplicación es un error conceptual que viola lo que plantea esta arquitectura, ya que en lugar de hacer la aplicación escalable del lado de la UI permitiendo cambiar la librería de Resct a Vue o a Svelte (agnóstico del franework) se está acoplando al mismo.
+
+Aunque Rafa lo aclara varias veces diciendo que esta hecho a sabiendas (lo cual es positivo) y ha sido una decisión del equipo de Codely, partir de este ejemplo que viola el principal principio de la arquitectura hexagonal en un curso sobre esta arquitectura, creo que es contraproducente.
+
+Sinceramente esperaba más del curso.Parece que React nunca debió salir a la capa de aplicación en esa carpeta sections
+Ojo, aun quedan más carpetas como shared o commons y fijate que cada uno está viendo la estructura de archivos como le da la gana.Simplemente tomarlo como una intro todo esto.Por último, usar arquitectura hexagonal debe ser una decisión que beneficie al proyecto.
+
+        VIDEO 04 PRIMER EJEMPLO EN CODIGO
+
+NOTA: fijate que los puntos de entrada index.tsx o App.tsx los consideran arquitectura.Fijate tmb como consideran que los hooks son application(aunque esté contaminado por arquitectura)
+Recuerda que puedo hacer typeof instance_of_an_object para que ese objeto me haga de tipo
+
+Asi pues me descargo el repo(lo crearé de 0).Vamos a crear un caso de uso(la creación de un curso).Tendré un componente de React que se encarga de pintar el formulario, los errores de validación,etc.Este componente a su vez usará un hook para gestionar el estado,pero todo esto vivirá en mi aplicación de React,esto no es importante,lo que importa ahora es como gestionar la lógica de negocio y como guardaré el curso(tras crearlo supongo)
+
+Habrá que crear una interfaz que defina como va a ser un curso(en este caso dentro de modules/courses <- fijate la Screaming Arquitecture aqui) y ya dentro de courses en la carpeta domain:
+
+export interface Course {
+	id: string;
+  title: string;
+  imageUrl: string;
+}
+
+Ahora ya puedo crear el caso de uso(la tipica funcion create,que tendrá que ir en modules/courses/application/create <- de nuevo Screaming Arquitecture(la primera lo era??))
+
+export function createCourse(course: Course): void { }
+
+Fijate que si uso arquitectura hexagonal no puedo importar aqui axios,o cualquier fetcher,si no estaria metiendo la infraestructura dentro de aplicación.
+NOTA: muchas veces en estas funciones,que es el service ya se llama al fetcher,pero se puede ir un paso mas allá y desacoplar esto,esta vez mediante el patrón Repository
+
+  VIDEO 05 DESACOPLANDO EL SERVICIO O MÉTODO PARA NUESTRO CASO DE USO
+
+El patrón Repository permite desacoplar implementación y lógica de la persistencia de datos.
+Por tanto tendŕe una interfaz CourseRepository que traiga todos los cursos,guarde uno,traiga uno,borre uno etc y despues tendré varias implementaciones posibles(una que guarde a una DB,otra al localStorage,otra mediante axios,etc)
+Todas estas implementaciones tocan entrada y salida de datos,asi que son infraestructura.
+
+NOTA:esta interface Repository recuerda que es del dominio.Podria ser algo asi:
+
+En /modules/course/domain/CourseRepository.ts
+import { Course } from "./Course";
+
+export interface CourseRepository {
+	save: (course: Course) => void;
+	getAll: () => Course[];
+}
+
+IMPORTANTE: para hacer la inversión de dependencias como no tengo clases en funciones simplemente se pasan por parámetro.Fijate que interesante esto:
+
+export function createCourse(courseRepository: CourseRepository, course: Course): void {
+	courseRepository.save(course);
+}
+
+NOTA: la gracia de la inyección de dependencias es tener la inversión de dependencias.Lo secundo.Fijate que nuestro ContextProvider va a recibir por props un repository:
+
+
+export const CoursesContextProvider = ({
+	children,
+	repository, <- necesitamos la instancia
+}: React.PropsWithChildren<{ repository: CourseRepository }>) => {
+	const [courses, setCourses] = useState<Course[]>([]);
+
+	function create({ title, imageUrl }: { title: string; imageUrl: string }) {
+    // fijate como ahora es trabajo del front crear el id
+		const id = (uuidv4 as () => string)();
+		createCourse(repository, { id, title, imageUrl });
+	}
+
+  En el App.tsx(que es infraestructura) instanciamos el repo para los cursos(de tipo CourseRepository):
+
+  export function App() {
+	const repository = createLocalStorageCourseRepository();
+
+	return (
+		<CoursesContextProvider repository={repository}>
+			<div className="App">
+				<h1>🍍 Codely</h1>
+				<CoursesList />
+				<CreateCourseForm />
+			</div>
+		</CoursesContextProvider>
+	);
+}
+
+NOTA: la inversión de dependencia es la D de solid
+En este ejemplo sencillo con React queda claro que App.tsx es el encargado de inyectar una implementación concreta, pero y si son muchas?
+Un usuario implementa su arquitectura algo distinto a ellos.Decidió que en su infra iba a tener las vistas que si o si serían reemplazables(por si cambian de React a Vue,etc).A nivel de esas carptetas tiene otra que se llama injections donde hace las instancias a todas estas funciones(el const repository = createLocalStorageRepository() del App.tsx)
+En los componentes o vistas usa un composable/hook que llama a la inyección que ya pueden usar los casos de uso(puede ser un hook o un provide inject,no necesariamente deben ir en app.vue,pueden ir en cualquier pagina que los requiera)
+Otro usuario parece que dice lo mismo que sería una carpeta /provide/inject.Todo esto parece un tanto confuso
+
+Desde luego puedo apreciar lo limpio que queda inyectar el repositorio hacia la capa de aplicación
+
+    VIDEO 06 AÑADIR VALIDACIONES AL CASO DE USO. COMO Y DONDE
+
+Un dilema importante es donde tener las validaciones.Desde luego el back tiene que tenerlas,esto esta claro. Veamos nuestro caso de uso de crear un curso si tmb necesita de ellas.
+
+Ya de momento recalca Nuria que deberiamos tener dos validaciones ya en el front, que la url de la imagen sea una url válida y la longitud del título del curso.Además queremos que mientras el usuario escribe ya le salten las validaciones.
+
+IMPORTANTE: esta función es una regla de nuestro dominio(aunque la llamaré en apliccation/casoDeUso).Y dado que valida un curso va en domain/course.ts:
+
+NOTA: vamos a lanzar excepciones en vez de un boolean que nos diga si el curso es valido luego la funcion validadora retornará void;
+
+TIP: fijate como regexp.test(expresion) me devuelve un boolean y con ello puedo hacer if(!function):
+
+export function isCourseIdValid(id: string): boolean {
+	const regexExp =
+		/^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/gi;
+
+	return regexExp.test(id);
+}
+
+En este punto Rafa recalca que podria tener todas las validaciones en un file(obviamente siempre van a ir en dominio,pero podria haber echo todo en un file).Lo bueno de tener todo separado por propiedades es que es mucho más fácil de cohexionar las cosas.Lo importante es que esté en dominio,básicamente
+NOTA: fijate que podria usar su expresion regular
+Bien,todo esto me queda bien claro de porqué se hace y donde se hace.Pero aún nos falta la validación en tiempo real(experiencia de usuario),pues no queremos que sea mando el form,veo el error
+
+Un simple efecto valdrá,fijate que las funciones están en dominio pero para poder usarlas en aplicación o infraestructura perfectamente:
+
+	useEffect(() => {
+		const isTitleValid = isCourseTitleValid(formData.title);
+		const isImageUrlValid = isCourseImageUrlValid(formData.imageUrl);
+		setErrors({
+			title: isTitleValid
+				? ""
+				: `Title must be between ${TITLE_MIN_LENGTH} and ${TITLE_MAX_LENGTH}`,
+			imageUrl: isImageUrlValid ? "" : `Image url is not valid`,
+		});
+	}, [formData.imageUrl, formData.title]);
+
+TIP: fijate que ellos tienen el caso de uso de getAllCourses(fijate que es un caso de uso,quiero decir,asinto)
+
+new Map<T,R> <- crear un map
+map.set(clave,valor)
+map.get(clave)
+map.has(clave)
+map.delete(clave)
+map.clear() elimina todo el Map
+map.size <- propiedad igual que length en arrays
+
+NOTA: Map utiliza comparación estricta(===) para comparar las keys
+TIP: cada llamada a map.set(clave,valor) devuelve el map asi que puedo encadenarlos:
+map.set('1','anything')
+   .set('2','otra cosa').set('3','3')......
+
+Para recorrer un Map hay tres métodos, map.keys() devuelve un Iterable con las llaves,map.values() devuelve un iterable con los valores y map.entries() devuelve un iterable con un arreglo [key,value].
+Ojo, Map guarda el orden de inserción,luego guarda un Mapa ordenado
+
+Conversiones: si tengo un objeto puedo pasarlo a Map(y viceversa) muy fácil:
+let obj = {
+  name: "John",
+  age: 30
+}
+let map = new Map(Object.entries(obj))
+
+El método Object.fromEntries hace lo contrario, dado un array de pares[clave,valor] crea un object a partir de ese array
+let prices = Object.fromEntries([
+  ['banana',1],
+  ['orange',2],
+  ['meat',4]
+])
+
+Diria que un Map es muy interesante para guardar Articulos con su precio,etc,aunque normalmente dos propiedades se quedan escasas(si que seria más interante que el valor fuera un object)
+
+Filtrar miembros únicos de un array.Recuerda que puedo hacer esto con un Set:
+
+function unique(arr) {
+  return Array.from(new Set(arr)) <- y a mimir
+}
+
+let values = ["Hare", "Krishna", "Hare", "Krishna",
+  "Krishna", "Krishna", "Hare", "Hare", ":-O"
+];
+Un DTO es una clase que solo contiene datos para poder ser pasados entre capas(sanitizar = sanitize)
+
+    VIDEO 07 DONDE EMPIEZAN Y ACABAN LOS TEST UNITARIOS
+
+Ellos consideran que un Unit test empieza en el Component(Application) , abarca el useCase(Application) y el Repository(Domain), pero la implementación de ese Repository(arquitecture) se hará con un mock y por ello solo abarca App y domain
+
+Un test de integración si que va a implementar el Repository(por ejemplo una implementación del localStorage o del Store)Ver imagen.
+
+NOTA: normalmente estas implementaciones del Repository suelen ser asincronas, o más pesadas,etc.Es algo que queremos evitar en el testing y por eso es recomendable hacer unit testing mockeando la implementación del Repository(Store,etc).Interesante
+
+En el mundo real el test más importante es el test de aceptación(o test end to end) que es el que cubre todo.Lo malo es que son los mas lentos y los que más trabajo requieren
+
+En nuestro caso el componente sería el componente que llama al formulario para crear un form
+
+        VIDEO 08 IMPLEMENTANDO EL TESTING UNITARIO
+
+Lo primero recuerda crear el setupTests.ts(en plural) a la altura de /tests/setupTests.ts.
+Fijate que están empezando desde el Context.Recuerda que Nuria tiene razón en decir que la entrada al localStorage es sincrona.
+
+Fijate en el acierto de buscar por label en vez de por text en cuanto pueda
+
+Fijate que al pasar un objeto que cumple la interfaz puedo hacer spy sobre la funcion.Este concepto no lo tenia muy claro,ya que con jest.fn() puedo saber si se ha llamado y con que se ha llamado,es más potente de lo que me parecía:
+
+describe("CreateCourseForm with mocked API", () => {
+	it("displays success message when data is correct", async () => {
+		const save = jest.fn();
+		render(
+			<CoursesContextProvider
+				repository={{
+					save,
+					get: jest.fn(),
+					getAll: jest.fn(),
+				}}
+			>
+				<CreateCourseForm />
+			</CoursesContextProvider>
+		);
+		const titleInput = screen.getByLabelText(/title/i);
+		userEvent.type(titleInput, "Awesome Hexagonal Architecture");
+
+		const imageUrlInput = screen.getByLabelText(/image/i);
+		userEvent.type(imageUrlInput, "http://placekitten.com/500/400");
+
+		const submitButton = screen.getByText(/create course/i);
+
+		userEvent.click(submitButton);
+
+		const successMessage = await screen.findByRole("heading", { name: /Course created/i });
+		expect(save).toHaveBeenCalled();
+		expect(successMessage).toBeInTheDocument();
+	});
+
+  Monorepo con el backend(entiendo que es un repo con el front y el back en la misma carpeta).Podrian compartir las entidades de dominio entonces?<- si es posible seria ideal ?? Investigar
+
+      VIDEO 09 TEST DE INTEGRACION Y END TO END(ACEPTACION)
+
+Preguntar a Miguel porque se llama testing de aceptación.
+Fijate que al usar cypress voy a necesitar ya el archivo cypress.config.ts:
+
+import { defineConfig } from "cypress";
+
+export default defineConfig({
+	video: false,
+	e2e: {
+		baseUrl: "http://localhost:3000",
+		specPattern: "tests/e2e/tests/**/*.spec.{js,jsx,ts,tsx}",
+		screenshotOnRunFailure: false,
+		video: false,
+		viewportWidth: 1920,
+		viewportHeight: 1080,
+		supportFile: "tests/e2e/support/e2e.ts",
+	},
+});
+
+Para el testing tmb vamos a tener los scripts siguientes:
+   "test": "jest",
+    "cy:open": "cypress open",
+    "cy:run": "cypress run"
+
+Fijate que tmb tengo los del linter y que tengo todo en el README
+
+Cypress es una libreria que levanta un navegador y nos permite ejecutar los test en un entorno 100% real.
+Jest no implementa la API fetch y ellos prefieren usar un entorno real.Me interesa mucho usar cypress,etc
+
+NOTA: fijate que la configuración de cypress no terminó en el file en el root,sino que hay que crear una carpeta 'e2e-integration' con una subcarpeta 'support' y el file e2e.ts y commands.ts
+
+
+/* eslint-disable testing-library/prefer-screen-queries */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable testing-library/await-async-query */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+describe("The home page", () => {
+	it("creates a course when filling up the form correctly", () => {
+		cy.visit("/");
+		cy.findByLabelText(/Course title/i).type("Awesome Hexagonal Arquitecture");
+		cy.findByLabelText(/Image URL/i).type("http://placekitten.com/500/400");
+		cy.findByText(/create course/i).click();
+		cy.findByRole("heading", { name: /Course created/i }).should("exist");
+		cy.findByRole("heading", { name: "Awesome Hexagonal Architecture" }).should("exist");
+	});
+});
+
+Fijate que cypress es sencillisimo y que se parece mucho al test unitario.Fijate tmb que estamos testeando la pagina entera y que es un test más completo o fiable que los que pueda hacer yo(sin desmerecerlos)
+
+Interesante el format del console.log(tiene que ser %d y %s en este orden o what??):
+const server = app.listen(app.get("port"), () => {
+	console.log(
+		"  App is running at http://localhost:%d in %s mode",
+		app.get("port"),
+		app.get("env")
+	);
+	console.log("  Press CTRL-C to stop\n");
+});
+
+export default server;
+
+Fijate tmb como han usado chai para promesas:
+import chai from "chai";
+import chaiAsPromised from "chai-as-promised";
+import { v4 as uuidv4 } from "uuid";
+
+
+chai.use(chaiAsPromised); <- linea importante
+const expect = chai.expect; <- economizar siempre es bueno,asinto
+
+it("does not throw an error when creating a course", () => {
+	const repository = createApiCourseRepository();
+	return expect(
+		repository.save({
+			id:uuidv4(),
+			title: "Course title",
+			imageUrl:"http:///placekitten.com/500/400"
+		}).to.be.fulfilled
+	)
+})
+
+Test de integración contra una API.Los tests de integracíon son los mas prescindibles,ya que el endToEnd garantiza ya la integración contra la API(si no no veríamos una mierda) y los de integración son practicamente igual de lentos,ya que tienen que hacer las peticiones.
+
+Y para los test e2e playwright ya viene con msw integrado y es super friendly. Que es PlayWright y MSW?
+
+				VIDEO 10 PASAR DE jQuery a Hexagonal
+
+Nuria y Rafa muestran un código legacy superacoplado con todo en un archivo.Por ejemplo estamos mezclando validaciones(dominio) con el acceso al localStorage(architecture con ch,asinto) y todos los casos de uso(application)
+También muestran el testing,y como hay un único test end to end ya que al tener todo en un archivo es imposible hacer test unitarios
+
+Antes de hacer refactor hay que ejecutar el test y ver que funcionaba correctamente lo que voy a refactorizar,ojo!
+
+Esto nos permite invertir las dependencias pasando el repositorio por parámetro, para poder así desacoplarnos de la implementación concreta. Inversión de dependencias(Dependency Inversion) la I es Interface Segregation(usa el inglés y sale solo)
+Para no llamar directamente desde el main con el Repository lo que se hace es crear los casos de uso,que reciben un repositorio y lo guarda(sin saber como).Es aqui donde esta el desacoplado,no llamo al localStorage directamente sino que lo paso por el caso de uso
+
+			VIDEO 11 CASOS DONDE NO HACE FALTA USAR HEXAGONAL
+
+Muestran una aplicación bastante parecida a la nuestra, con un archivo para el modelo y las validaciones y otro para los servicios(con las implementaciones concretas).Obviamente hay algo de acople en los servicios
+
+Fijate en el testing como jest.mock("path") lo que hace es interceptar el import y despues mockear esa función a lo que yo quiera:
+
+import { saveCourse } from "../../courses/shared/coursesService"; <- import normal
+
+lo intercepto(pero han interceptado todo el modulo...)
+jest.mock("../../courses/shared/coursesService");
+const savedCourseMock = saveCourse as jest.Mock<Promise<void>>; <- saveCourse es el mock
+
+  describe(....,() => {
+		saveCourseMock.mockResolvedValueOnce() <- me faltaba decir que devuelve
+	})
+
+Mirar nuestra sintaxis.Fijate que aqui no hay inversión de dependencias,pues el servicio usa implementaciones concretas.Sin embargo recalcan que no es un mal approach
+
+Vemos así que lo que nos aporta Hexagonal es:
+1- Un framework mental para trabajar en equipo
+2- Separación más clara por carpetas/capas
+3- Posibilidad de añadir reglas de linter para controlar regla de dependencias (eslint-plugin-hexagonal-architecture) Este linter controla que desde dominio no pueda hacer imports de application,etc.Tmb fuerza el naming de las carpetas.
+
+Sigo teniendo dudas de cuando iría bien hexagonal,entiendo que si no va a haber modificaciones no hace falta,pero si va a haber cambio de frameworks(como pueda haber con microfrontends) si que parece indispensable dominarlo.
+NOTA: Hexagonal agrega niveles de indirección,es algo que hay que tener en cuenta
+
+				VIDEO 12 PROMESAS Y HEXAGONAL
+
+Podriamos definir una promesa como un detalle de implementación que nos está diciendo que algo va a ser asíncrono en vez de síncrono.Debería de ser infraestructura,ya que estamos tocando entrada y salida pero en Javascript esto es dificil de ver 
+
+Nuria y el pelanas muestran un ejemplo donde tenemos una implementación de CourseRepository(recuerda,la implementacion va en infraestructura,la definicion de la interfaz o la abstración va en el dominio).En realidad tenemos dos,la ya vista del localStorage y otra usando la api fetch que obviamente nos hace cambiar el tipado de la interfaz:
+
+export interface CourseRepository {
+	save: (course: Course) => void | Promise<void>;
+	get: (id: string) => Course | null | Promise<Course | null>;
+	getAll: () => Course[] | Promise<Course[]>;
+}
+
+Usar los union types puede parecer el Santo Grial, ya que resuelve los problemas de tipado,pero en el momento de consumir/implementar la abstracción vamos a tener el mismo problema,que no va a saber si es uno u otro y hay que manejar ambas posibilidades.
+Entiendo que se decantaron por usar union types
+
+				VIDEO 13 OBJECT MOTHER en testing
+
+El patrón Object Mother nos ayuda a simplificar y agilizar la creación de datos fake en nuestros test.Si nos fijamos en el test del video:
+
+const titleInput = screen.getByLabelText(/title/i);
+userEvent.type(titleInput, invalidTitle);
+
+const errorMessage = await screen.findByText("Title must be between 5 and 100 characters");
+
+vemos que hay literales calzados a pelo ahi.Esto no es buena idea,empeora la legibilidad
+Para solucionar este problema puedo usar el patrón Object Mother (tmb conocido como Test Object Factory ??).
+
+Usaremos dos librerias(@faker-js/faker y fishery).Fishery es una dependencia que me permite agilizar todas estas funciones de tipo factoria para generar objetos:
+
+import { faker } from "@faker-js/faker";
+import{ Factory } from "fishery";
+
+import { Course } from "../../domain/Course"; <- me traigo el model
+import { TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from "..."
+
+const courseFactory = Factory.define<Course>(() => ({
+	id: faker.datatype.uuid(),
+	title: faker.lorem.sentence(),
+	imageUrl: faker.image.imageUrl(),
+}))
+
+Para no acoplarnos tampoco a la libreria esta de Factory exportamos nuestro objeto que fijate que tiene las propiedades create,createList,createWithTooShortTitle,etc <-obviamente son propiedades que nos inventamos,lo bueno está en su valor:
+
+export const CourseMother= {
+	create: (params?:Partial<Course>):Course => {
+		return CourseFactory.build(params)
+	},
+	createList: (length = 5): Course[] => {
+		return CourseFactory.buildList(length)
+	},
+	createWithTooShortTitle: ():Course => {
+		return CourseFactory.build({
+			title.faker.lorem.word(TITLE_MIN_LENGTH - 1)
+		})
+	}
+}
+
+Fijate como ellos ya saben la sintaxis de Factory.define<T>(callback)
+y que despues pueden llamar al retorno de esta funcion y sus propiedades .build o .buildList(number) para generar incluso varios cursos.
+
+Pero también puedo apreciar como han usado Vertical Slicing + Hexagonal y han metodo el CourseMother en la carpeta domain del agregado.Te cagas
+
+Ahora si, ya podemos usar este objeto madre en los testing:
+
+it("displays error message if title is too long",async() => {
+	const repository = createLocalStorageCourseRepository();
+	const { title: invalidTitle } = CourseMother.createWithTooShortTitle();
+
+	render(
+			<CoursesContextProvider repository={repository}>
+				<CreateCourseForm />
+			</CoursesContextProvider>
+	)
+
+  const titleInput = screen.getByLabelText(/title/i);
+	userEvent.type(titleInput,invalidTitle);
+// fijate en el await screen.findByText, pero si nosotros lo usamos sin await,no ?	
+	const errorMessage = await screen.findByText("Title must be between 5 and 100 characters")
+
+	expect(errorMessage).toBeInTheDocument();
+})
+
+Desde luego tiene buena pinta.Nuria recalca que tienen un curso de testing en front.Creo que es muy buena idea hacerlo mientras me acoplo a mi nueva empresa
+
+NOTA: más allá de tener mayor agilidad a la hora de crear datos para mis tests,la aleatoriedad de esa generación también nos aporta robustez y fiabilidad,ya que no estaré siempre testeando con los mismos valores
+Otro beneficio del patrón Object Mother es que mejora la legibilidad de nuestros tests. Al utilizar objetos que representan conjuntos de datos, el código se vuelve más conciso y fácil de entender.Concuerdo con sus afirmaciones
+
+La libreria faker es un standar de facto para fakear datos.
+
+			VIDEO 14 COMO USAR LA CARPETA SHARED
+
+El módulo shared, también llamado commons contiene funciones geneŕicas que reutilizamos y llamamos desde distintos módulos/partes de nuestra aplicación.
+Creando esté modulo evitamos la duplicidad y mejoramos la mantenibilidad de nuestro código.Sin embargo hay ciertas reglas que hay que tener en cuenta.
+
+No es bueno crear interfaces a medias,que usen dos interface que ya tenemos para evitarnos crear dos y crea una genérica en shared.Esto me va a dar problemas a la larga,ya que tendré problemas para testear o escalar esa interface(diria que lo importante no es que vaya en shared,sino que no debo hacer eso y debo crear types para cada caso de uso,etc)
+
+Shared si que me puede ser muy útil para evitar duplicar código y simplificar ciertas partes.Para asegurarme que no se me va de las manos,debería seguir estas reglas:
+
+1- Solo compartiré dos capas,dominio e infraestructura, nunca casos de uso
+2- La regla de 3, solo debería mover código a shared cuando se haya duplicado más de dos veces(a la tercera que lo vaya a hacer,debería refactorizar)
+
+		VIDEO 15 EXPRIME LA PROGRAMACION FUNCIONAL EN LA ARQUITECTURA HEXAGONAL
+
+A) Forma funcional
+En el front se puede hacer lo mismo que en back usando clases en hexagonal pero con funciones(incluso React dejó definitivamente las clases)Ojo, en Typescript las clases si que son tratadas como ciudadanos de primera clase.
+
+Si por ejemplo vemos el caso de uso de crear un curso veo que ya estamos usando un approach funcional(con inyección de dependencias por método,ojo):
+
+import { Course, ensureCourseIsValid } from "../../domain/Course";
+import { CourseRepository } from "../../domain/CourseRepository";
+
+export function createCourse(courseRepository: CourseRepository) {
+	return async function (course: Course): Promise<void> {
+		ensureCourseIsValid(course);
+
+		await courseRepository.save(course);
+	};
+}
+
+
+Si usaramos clases tendría que inyectar por constructor el CourseRepository y habría un método de clase para crear el curso,etc
+Fijate que estamos llamando a una función de validación que de nuevo si estuvieramos con clases habría que llamar en el constructor(en el primer punto posible),etc
+
+En resumen:
+No hay instanciación del objeto curso (es decir, no hay new Course()). El objeto que nos llega por parámetro ya cumple con la interfaz de curso, por lo que lo único que hay que hacer es validar que las propiedades de este son correctas. Esto nos lleva al segundo punto.
+
+Al no haber constructor, no podemos ejecutar las validaciones allí. Por eso las tenemos en funciones separadas (en CourseId.ts, CourseTitle.ts, etc), que ejecutamos en la validación de curso y lanzamos una excepción si las propiedades no son correctas:
+
+Usar funciones diría que son casi todo mejoras sobre las clases, me permite exportarlas y reutilizarlas, o tmb puedo usarlas de forma individual(en vez del objeto en el que estaban):
+
+export type saveCourse = (course: Course) => Promise<void>;
+export type getCourse = (id: string) => Promise<Course | null>;
+export type getAllCourses = () => Promise<Course[]>;
+
+Cuando dice funcion Factory a que se refiere? <- aparte de esto si que entiendo que usar el approach de arriba me hace evitar que el createCourse pudiera hacer un getCourse.En resumen, en vez de pasar un repositorio entero le pasamos solo el método que queremos
+
+Y por último me permite usar 'currying' lo cual me parece superinteresante,pudiendo separar los parámetros propios del caso de uso de sus dependencias:
+
+* Teniendo una función externa + otra interna asi **
+export function createCourse(courseRepository: CourseRepository){
+	return async function(course:Course): Promise<void>{
+		ensureCourseIsValid(course);
+		await courseRepository.save(course)
+	}
+}
+ puedo llamar a ambas a la vez(obviamente cada grupo de parentesis manda los argumentos a una función diferente):
+ createCourse(repository)({id,title,imageUrl})
+
+NOTA: fijate que esto antes era:
+function(courseRepository,course){
+	courseRepository.save(course)
+}
+y ahora es 
+function(courseRepository){
+	return function(course){
+		courseRepository.save(course)
+	}
+}
+
+Fijate que la segunda función podria no tener argumentos(o la primera) pero siempre voy a tener que llamar a a las dos:
+
+export function getAllCourses(courseRepo:T) {
+	return async function(){
+		return courseRepo.getAll()
+	}
+}
+
+const courses = await getAllCourses(instancia)(); <- es ()()
+Super interesante.Investigar ejemplos interesantes de currying
+
+NOTA: con funciones flecha es aun más claro.
+
+const soakIn = (a:string) => (b:string) => b + " " + a;
+soakIn("is back")("asinto"); <- "asinto is back"
+
+Porqué usar currying:
+1- poder usar inyección de dependencis en testing: por ejemplo, si tengo una función que usa una API, puedo hacer la función abstracta mediante currying y esperar la API como argumento en la curried function,de esta forma puedo testear fácilmente la función interna mockeando su argumento,que será esta API
+
+Antes:
+import * as api from 'whatever';
+function saveData(payload:any){
+	return api.save('Route',payload)
+}
+Despues:
+import * as api from 'whatever';
+import * as R from 'randa';
+
+function _saveData(api:any,payload:any){ <- fijate que la función interna si recibe un argumento automáticamente la externa lo va a recibir,si no no podria pasarlo,asinto odiador
+	return api.save('Route',payload)
+}
+
+Esto puede escalar perfectamente:
+unction grind(a: string) {
+  return (b: string) => {
+    return (c: string) => {
+      return (d: string) => {
+        return (a + b + c + d).shuffle()
+      }
+    }
+  }
+}
+grind("Chillies")("Ginger")("Turmeric")("Coriander") // 
+
+IMPORTANTE: en React todo Event Handler o método sintético es tratado como si estuviera curried asi que en la definicion del handleChange puedo usar el evento perfectamente:
+
+
+<input type="text" onChange={() => handleChange('username')} <- fijate que no le he pasado el evento
+
+* Pero lo accedo como funcion interna por estar en React
+const handleChange = (fieldName:string) => (event:any) => {
+	 event.stopPropagation()
+   saveField(fieldName,event.target.value)
+}
+
+React llama a los eventHandler de esta forma en el background: (event) => handldeChange(param)(event)
+
+Performance Cost: cuando creo funciones curry creo funciones englobando a otras.En HOC no usar curry puede llevar a crear cientos de funciones adicionales,mejorando la performance.En general,es mejor usar funciones curry cuando se necesite
+
+Curry can be used from libraries like Lodash, Folktale, Ramda, and Sanctuary in JavaScript
+Desde luego la parte de React me aplica de lleno
+
+B)Forma con POO
+
+Casi siempre podré hacer lo mismo usando OOP,aunque ahora estará todo cohexionado en una clase.Fijate que han usado Value Objects, y cada Value Object llamará a las funciones de validacion en en constructor(pues lo primero que tengo que hacer es validar).De esta forma no es posible crear un curso que no esté correctamente validado.
+Fijate tmb que al validar en el constructor ya no es necesaria la validación en el método del caso de uso,pues ya se ha validado que el Course sea válido(antes no era asi esto)
+Tmb usan métodos estáticos para ocultar la instancia,sus value objects,etc lo cual me parece un acierto.
+
+export class Course {
+	private constructor(
+		readonly id: CourseId,
+		readonly title: CourseTitle,
+		readonly imageUrl: ImageUrl
+	  ){}
+
+este Primitives<T> es de ellos y no se lo que hace.Fijate como el create tiene que ser publico y es mejor que sea estático y como llama  a los constructores de los Value Objects.Todo claro
+	public static create({id,title,imageUrl}:Primitives<Course>):Course
+  	return new Course(newCourseId(id),new CourseTitle(title),new ImageUrl(imageUrl))
+	}
+
+	algunos getters,nada importante
+  idValue(): string {
+		return this.id.value;
+	}
+
+	titleValue(): string {
+		return this.title.value;
+	}
+
+	imageUrlValue(): string {
+		return this.imageUrl.value;
+	}
+}
+
+Un Value Object lucirá asi(llama a las validaciones en su constructor).Esto es importante,siempre quiero que pete lo antes posible en una validación,asi que el constructor del Value Object es el punto adecuado
+
+export class CourseTitle {
+	static readonly MAX_COURSE_LENGTH = 40;
+
+	constructor(readonly value: string) {
+		if (!CourseTitle.isValid(value)) {
+			throw new Error(CourseTitle.invalidMessage(value));
+		}
+	}
+
+	public static isValid(value: string): boolean {
+		return value.length > CourseTitle.MAX_COURSE_LENGTH;
+	}
+
+	public static invalidMessage(value: string): string {
+		return `The title [${value}] is too long. ${CourseTitle.MAX_COURSE_LENGTH} chars is the max allowed`;
+	}
+}
+
+En el front es recomendable usar la aproximación funcional por motivos obvios
+
+C) USAR VALUE OBJECTS EN UN APPROACH FUNCIONAL
+
+Obviamente tiene mucho sentido usar Value Objects si estoy usando clases, pero tienen sentido en el frontend?
+
+Un Value Object es una clase que representa una propiedad y centraliza toda la lógica que tiene que ver con esa propiedad(hace de imán).Por ejemplo CourseTitle
+
+Lo mismo se puede lograr usando programación funcional:
+export const TITLE_MIN_LENGTH = 5;
+export const TITLE_MAX_LENGTH = 100;
+
+export type CourseTitle = string; <- porque crean un type??
+
+export function isCourseTitleValid(title: string): boolean {
+	return title.length >= TITLE_MIN_LENGTH && title.length <= TITLE_MAX_LENGTH;
+}
+
+export function CourseTitleNotValidError(title: string): Error {
+	return new Error(`Title ${title} is not valid`);
+}
+
+Parece que tmb es importante exportar su tipo(export type CourseTitle = string) ya que asi la interface del domain no tratará con primitivos directamente(esto es algo que me pregunto mucho):
+export interface Course {
+	id: CourseId;
+	title: CourseTitle; <- es aqui donde la usaré
+	imageUrl: CourseImageUrl;
+}
+
+NOTA: parece que usar Branded Types(mis propios tipos) es algo más profundo que esto
+type PositiveNumber = number & {__brand:'PositiveNumber'};
+
+function divide(a:number,b:PositiveNumber){
+	return a/b;
+}
+function assertPositiveNumber(x:unknown): asserts x is PositiveNumber{
+	if(typeof x === 'number' && x < 0){
+		throw new Error('Number is not greater than zero')
+	}
+}
+
+const x = 10;
+assertPositiveNumber(x);
+divide(100,x); <- OK! pues ha pasado la linea anterior
+
+Los branded Types permiten controlar errores de programación mediante la prevención de valores que no cumplan ciertos criterios al ser pasados como argumentos,etc.Son una forma de código defensivo en TS y pueden asegurar validacion de tipos.Interesante
+
+			LAST VIDEO HEXAGONAL EN EL MUNDO REAL
+
+Simplemente ver el video cual asinto.Fijate que esta arquitectura parece bastante en base a decisiones de equipo y compleja.Ya iré pillando callo con ella.
+Fijate que ellos están metiendo todo lo que es React en sections(es decir, en modules no puede haber nada de React).Me parece interesante tmb esta decisión.
+Despues en dominio no puede haber casos de uso,etc.
+

@@ -1,0 +1,119 @@
+        MODELADO DEL DOMINIO BY CODELY
+
+    VIDEO 1 PATRON REPOSITORY
+
+Source: https://pro.codely.com/library/modelado-del-dominio-repositorios-203057/517739/path/step/262839786/
+
+Siempre que trabaje con Repositorios debería estar atento a la cambiabilidad, la posibilidad de cambiar de Gestor de DB.Si bien esto es algo que apenas sucede, implementar el patrón Repository tmb mejora el testing, además de la cambiabilidad.Un ejemplo con este patrón sería asi:
+
+import { User } from '../domain/User';
+import { UserRepository } from '../domain/UserRepository'; <- recuerda que el Repository va en dominio tmb
+
+export class UserRegister {
+  constructor(private readonly repository: UserRepository){  }
+  
+  async register(id: string, email: string): Promise<void> {
+    const user = new User(id,email);
+    await this.repository.save(user);
+  }
+}
+
+Fijate como todo los dominios me están encapsulando todo, ni sé como se crea el User ni como se guarda, desde luego todo esto es superinteresante
+Fijate tmb como traer la implementación es un error:
+import { MySQLUserRepository} from "../infrastructure/MySQLUserRepository"; <- bien, pero cuando la uso?
+
+El patrón Repository es un sitio(una interfaz|clase) donde vamos a tener toda la gestión de datos(CRUD,etc).Un ejemplo sencillo sería asi:
+
+import { User } from "./User"; <- pues estoy a su par,en dominio
+import { UserId } from "./UserId";
+
+export interface UserRepository {
+  save(user:User) : Promise<void>;
+  
+  search(userId:UserId) : Promise<User | null>;
+}
+IMPORTANTE: no debo desarrollar los métodos aqui! esto es la abstracción que va en domain,las implementaciones de infraestructura los desarrollarán!
+
+Ojo, en cuanto ya quiera realizar busquedas más complejas como filtrados,agrupaciones,etc este patrón se suele acompañar de otros(entiendo que este patrón se ocupa de las operaciones básicas y jay que conjuntarlo con otros para realizar la aplicación ya xd)
+
+El dominio no es más que las entidades que vamos a tener en nuestro contexto de aplicación, por ejemplo Usuario,Pedido,Carrito,Devolución si estuvieramos en un ECommerce,etc
+
+Entonces,una implementación de este UserRepository podria ser algo asi:
+
+import { MariaDBConnection } from "../../shared/infraestructure/MariaDBConnection";
+import { User } from "../domain/User";
+import { UserId } from "../domain/UserId";
+import { UserRepository } from "../domain/UserRepository";
+
+export class MySqlUserRepository implements UserRepository {
+  constructor(private readonly connection: MariaDbConnection) {} <- inyectamos la conexión necesaria
+
+  async save(user:User): Promise<void> {
+    const query = `INSERT INTO users (id,email) VALUES ('${user.id.value}','${user.email}')`
+    await this.connection.execute(query)
+  }
+
+  async search(id: UserId): Promise<User | null>{
+    const query = `SELECT * FROM USERS WHERE id='${id.value}'`;
+    const result = await this.connection.searchOne<id:string; email:string>(query);
+    if(!result) return null;
+    return new User(result.id,result.email) <- porque crea un nuevo usuario?
+  }
+}
+
+Search vs find: ellos hacen diferencia entre un search, que si no encuentra devuelve un null simplemente y un find, que si no encuentra devolvemos una excepcion ya que queremos que encuentre, el search no importa mucho si no encuentra.Me vale la explicación
+
+Vamos a seguir con dudas como Repository vs DAO, hace falta la interfaz de un repo? necesitamos un repo de lectura y otro de escritura? search vs find? deben lanzar excepciones los repos? es necesario un ORM?
+
+      VIDEO 2 EVITA FILTRACIONES DE INFRAESTRUCTURA(LEAKS) Y SÉ CONSISTENTE CON EN NIVEL DE ABSTRACCIÓN
+
+
+El patrón de diseño Unit Of Work que implementan los ORMs lo que hace es que cuando quiero guardar un usuario no se hace en una única operación, sino que primero se guarda en memoria y despues se guardan, de esta forma en una única operación puedo guardar 10 usuarios,por ejemplo, mejorando la performance. Casi todos los ORM lo hace(de forma encapsulada al dev además)
+Es por ello que ellos presentan el método flush en el ejemplo, que vendría a ser el commit(), el permiso para que se ejecute la transación
+
+Bien, entonces, viendo esta interfaz de dominio de Repository:
+
+import "./Course"
+import "./CourseId";
+
+export interface CourseRepository {
+  save(course:Course):Promise<void>;
+  flush(course:Course):Promise<void>; <- esto es un leak, es de infraestructura
+  search(id:CourseId):Promise<Course | null>;
+}
+
+Realmente el flush solo lo voy a querer hacer en la implementación, cuando llame a la concreción. No tiene sentido que lo exponga aqui, y lo comparto. Lo que han hecho es una clase intermedia abstracta con el método persist() que hace el flush.Esta clase intermedia se usa para encapsular este tipo de "warraditas"
+Todo esto le llaman acoplamiento estructural.Otro ejemplo de acoplamiento estructural que muestran es:
+
+search(_id: CourseId)<- por qué? porque estamos acoplandonos a MongoDB, cuando estamos en una abstracción que no tiene que saber si vamos a usar una DB relacional o no
+
+    VIDEO 03 AÑADIENDO PATRON REPOSITORY EN SISTEMAS LEGACY
+
+   Fijate que en el testing han usado una DB, y lo único que han echo ha sido mover un par de lineas.Tmb fijate que el UserRepository es dominio pero el MysqlUserRepository es infraestructura 
+   Ojo, si el testing lo hago con DBs el tiempo va a crecer mucho.Veremos más adelante como acortar este tiempo(seguramente sin usar una DB??)
+
+      VIDEO 04 SEARCH VS FIND
+
+Buscar vs encontrar: si por ejemplo estamos en Facebook y como usuario metemos cualquier cosa en los queryParams obviamente no vamos a encontrar un usuario siempre, pero el echo que no encontremos un usuario no significa que sea un error.
+
+En este caso comenta David que se debe devolver un 404(los 400 son errores del cliente).En cambio, estamos en un formulario que al crear un recurso queremos redirigirlo al usuario inmediatamente a ese recurso.Obviamente el recurso existe,y si no encontrara este recurso eso si es un error(entiendo que deberá ser un error 500??)
+De aqui que buscar(que puede tirar el 400) tenga contemplado que no encuentre el recurso mientras que el find no puede fallar.
+
+export class UserSearcher {
+	constructor(private readonly connection: MariaDBConnection) {}
+
+	async search(id: string): Promise<User | null> {
+		const query = `SELECT * FROM users WHERE id='${id}'`;
+
+		const result = await this.connection.searchOne<{ id: string; email: string }>(query);
+
+		if (!result) {
+			return null;
+		}
+
+		return new User(result.id, result.email);
+	}
+}
+
+Ellos consideran un error de dominio ese null,ya que es su custom error
+Fijate que al final los nombres es convención de equipo, puede ser get y find o get y search,etc

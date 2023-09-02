@@ -1,0 +1,468 @@
+      QUE ES LA DEVELOPER EXPERIENCE - TYPESCRIPT
+
+La Developer eXperience es un elemento importante para poder trabajar de forma óptima. Gracias a ella es posible obtener un entorno de desarrollo más robusto y confiable que nos permite avanzar rápidamente y con un feedback loop apropiado(que es un feedback loop ??)
+
+Algunos ejemplos de buena Developer eXperience: 
+1- Buena documentación de las herramientas(como ejemplo Isma muestra la web de Stripe y su buena documentación, en varios lenguajes,etc, ocomo tiene un sdk y una cli,etc)
+2- Changelogs bien documentados(como el caso de n8n o el de Amiga tmb diria yo(mirate estos últimos dias un poco el changelog de Amiga))
+3- Entornos de desarrollo potenciados gracias a Typescript
+
+      VIDEO 02 TRANSFORMACIONES DE TIPOS GRACIAS A LOS UTILITY TYPES
+
+Los utility types son una serie de utilidades preconstruidas dentro del lenguaje con el objetivo de ayudarnos a hacer transformaciones de tipos comunes.
+Existen muchos disponibles como puede ser el caso de Readonly,que transforma todas las propiedades de un objeto a inmutables.
+
+Entre los más importantes para mi ahora mismo veo a :
+
+1 -Partial<T> : construye un tipo con todas las propiedades de T opcionales.Esta utility retornará un tipo que representa todos los subsets del tipo dado(entiendo que se refiere a que puede devolver cualquier conjunto de sus propiedades).Va perfecto para updates:
+
+interface Todo {
+  title: string;
+  description: string;
+}
+function updateTodo(todo:Todo,fieldsToUpdate:Partial<Todo>){
+  return { ...todo, ...fieldsToUpdate }; <- me gusta mucho esta forma
+}
+
+2- Required<T>: construye un tipo con todas las propiedades del Type T requeridas.Lo contrario a Partial<T>
+interface Props {
+  a?:number;
+  b?:string;
+}
+const obj: Required<Props> = { a:5, b:"casa"} <- si no le paso las dos me dará error
+
+3- Readonly<T>: construye un tipo con todas las propiedades de T no reasignables(readonly), con  lo que las propiedades no pueden cambiar de valor.Fijate que podria haberlo usado más veces en alguna libreria de datos(diria que es buena idea incluso)
+
+interface Todo {
+  title: string;
+}
+const todo: Readonly<Todo> = {
+  title: "Delete inactive users",
+};
+ 
+todo.title = "Hello"; <- error "Cannot assign to 'title' because it is a read-only property
+
+4- Record<Keys,Type>: construye un object type cuyas keys serán las Keys y cuyos valores serán de tipo Type.Esta utility se puede usar para mapear las propiedades de un tipo a otro tipo:
+
+interface CatInfo {
+  age:number;
+  breed:string;
+}
+type CatName= "miffy" | "boris" | "mordred";
+const cats: Record<CatName,CatInfo> = {
+  miffy: {age: 10, breed: "Persian"} <- la key tiene que ser miffy o boris o mordred por huevos
+ boris: {age:5, breed:"Maine Coon"},
+ mordred: {age: 16: breed: "British shorthair"}
+}
+cats.boris <- ojo que puedo indexar por la key,esto tmb es super interesante
+
+5- Pick<Type,Keys>: construye un tipo cogiendo solo el set de propiedades que ponga como Keys(fijate que puede ser un string literal o una union de string literals).Tiene que ser las Keys de ese Type,claro:
+
+interface Todo {
+  title: string;
+  description: string;
+  completed: boolean;
+}
+type TodoPreview = Pick<Todo,'title'|'completed'>;
+const todo:TodPreview = {
+  title: "Clean room",
+  completed: false
+}
+
+6- Omit<Type,Keys>: construye un Type cogiendo todas las propiedades de Type y despues removiendo las Keys.De nuevo puede ser un string literal o una union de ellos
+interface Todo{
+  title: string;
+  description: string;
+  completed: boolean;
+  createdAt: number;
+}
+type TodoPreview = Omit<Todo,"description">;
+const todo: TodoPreview = {
+  title: "Clean room",
+  completed: false,
+  createdAt: 1615544252770,
+};
+ 
+ 7- Exclude<UnionType,MembersToExclude>: construye un Type excluyendo los MembersToExclude de un UnionType.Fijate que está orientado a trabajar con Union Types:
+
+ type Tipo0 = Exclude<"a" | "b"| "c", "c"> <- excluye de a | b | c el c,luego Tipo0 es "a" | "b", otro union type
+ type T2 = Exclude<string | number | (() => void), Function>; dará type T2 = string | number
+
+ Si bien noparece que se vaya a usar mucho con estos ejemplos aqui si tengo un ejemplo que muestra su potencia,interesante
+ type Shape =
+  | { kind: "circle"; radius: number }
+  | { kind: "square"; x: number }
+  | { kind: "triangle"; x: number; y: number };
+ 
+type T3 = Exclude<Shape, { kind: "circle" }>
+
+8- NonNullabe<Type>: construye un nuevo type extrayendo de ese Type todos los null o undefined
+
+9- ReturnType<T>: como último destacado, ReturnType<T> construye un tipo consistente en el retorno de la funcion T(luego T aqui es una función,ojo)
+
+declare function f1():{a:string,b:string};
+type T0 = ReturnType<() => string>; TO es un string
+type T4 = ReturnType<typeof f1>; ojo, la call es con typeof function(ya que function es un Object,asinto)
+T4 será {a:string,b:string}
+type T7 = ReturnType<string>; <- esto dará error,no es una funcion
+
+IMPORTANTE: esto son los tipos de utilidad construidos por ellos,pero yo también me puedo crear tipos de utilidad.Por ejemplo un tipo Maybe<T>, un tipo muy usado en Haskell o Scala
+
+type Maybe<T> = T | undefined
+
+function tryCreateCourse():Maybe<Course>{  <- podria no crearlo
+  ... return course;
+}
+const course = tryCreateCourse();
+Ojo, no puedo hacer course.name pues course es course | undefined. Tengo que usar narrowing:
+
+if(course){ <- esto es narrowing
+  course.name
+}
+El potencial que tiene esto es brutal, aunque de momento este ejemplo es muy tonto
+
+        VIDEO 03 MEJORA TUS OBJECT MOTHERS GRACIAS A PARTIAL<T>
+
+El patrón Object Mother me permite simplificar el setup de nuestros tests evitando la complejidad de tener que instanciar todas las propiedades de una entidad siempre en nuestros tests(al final tendré una clase u objeto llamado EntityMother,por ejemplo CourseMother).
+
+Realmente es bastante sencillo, primero creamos un type para esa entidad(porque va todo a readonly ??)
+
+export type CourseObject = {
+  readonly id: string;
+  readonly title: string;
+  readonly slug: string
+}
+
+Despues con la libreria faker y un Partial<T> mando el objeto original con lo que me manden del partial y el resto lo genera faker:
+
+import { faker } from "library";
+import { CourseObject } from "./CourseObject";
+
+// Con Partial<T> creo un tipo parcial del dominio
+type PartialCourseObject = Partial<CourseObject>;
+
+export class CourseObjectMother {
+  static create(partialCourse?:PartialCourseObject):CourseObject {
+    const randomCourse : CourseObject = {
+      id: faker.string.uuid(),
+      slug: faker.string.alpha(10),
+      title: faker.string.alpha(20),
+    }
+    const courseOverridingDefaults = {
+      ...randomCourse,  <- juntamos los objetos
+      ...partialCourse
+    };
+    return courseOverridingDefaults;
+  }
+}
+
+Asi puedo mandar solo las propiedades que quiera.
+NOTA: Partial lo que hace es una transformación de tipo
+Fijate que la generación de la función estatica, publica y que recibe un parametro del tipo transformado pero devuelve el original es clave:
+
+ static create(partialCourse?:PartialCourseObject):CourseObject {
+
+  VIDEO 3 SIMPLIFICA EL RETORNO DE TUS FUNCIONES CON RECORD<Keys,Type>
+
+  Gracias al utility type Record puedo crear tipos derivados que evitan verbosidad en mi código y hacen que el mismo sea más resistente al cambio.
+
+type CourseStatus = "archived" | "active";
+
+export interface Course {
+  name: string;
+  status: CourseStatus;
+}
+
+// imaginando que quiero tener otro objeto con los cursos agrupados segun tipo,podria crear este tipo, sin embargo no es lo mejor, es mejor decirle que las keys serán  las formadas por el type CourseStatus e irían agregandose solas aqui,etc
+type GroupedCoursesByStatus = {
+  active: Course[];
+  archived: Course[];
+};
+
+// fijate que ellos han ido un poco más allá y están tipando el retorno de la función,muy pros
+export function groupByStatus(courses: Course[]): Record<CourseStatus, Course[]> {
+  return {
+    active: courses.filter((course) => course.status === "active"),
+    archived: courses.filter((course) => course.status === "archived"),
+  };
+}
+
+TIP: esto es el principo Open/Closed <- si añado una nueva propiedad(estado en este caso) ya no tengo que modificar todos los clientes
+
+    VIDEO 04 CONST TYPE PARAMETERS
+
+Con la llegada de Typescript 5.0 tenemos una nueva funcionalida relacionada en como el transpilador determina el tipado especifico de nuestras variables
+
+Antes de la llegada de esta feature era posible marcar una variable como constante usando el modificador 'as const':
+
+const user = { name: "Isma", age: 31 } as const;
+
+Gracias a esto el transpilador puede determinar que la propiedad name de la constante user no es cualquier string sino que es el literal "Isma".
+
+Con la llegada de los nuevos cons type parameters esta funcionalidad puede ser aplicada en la firma de las funciones, pudiendo indicarle al transpilador que consideramos el parámetro de entrada como un tipo constante y no un tipo genérico:
+
+function getUserAge<const T extends User>(user: T): T["age"] {
+  return user.age
+}
+
+Gracias a esta nueva funcionalidad la fucntion getUserAge devolverá el valor especifico de la edad y no un tipo number.
+En los siguiente videos veremos casos de uso prácticos para esta nueva feature relacionada con objetos de configuración.
+
+
+export type User = { name: string, age: number};
+
+// T extends User es un contrato,donde T debe ser subclase de User o User tmb.Fijate como decimos que la funcion va a devolver una propiedad con T["name"], en vez de poner string,por ejemplo
+function getUserName<T extends User>(user:T): T["name"] {
+  return user.name;
+}
+
+// NOTA: al decir que retorna T["name"] Typescript va a inferir un string simplemente, pero esto va a cambiar con los const type parameters(o sea que de momento simplemente infiere el primitivo)
+
+// si miro el valor de retorno veré que user1 es un string
+const user1 = getUserName({name: "Isma",age:31})
+// pero aqui veré que es el literal "Isma", mola
+const user2 = getUserName({name: "Isma",age:31} as const)
+
+// la utilidad en el mundo real de que el transpilador sepa el valor,ya que en la mayoria de casos va a ser un valor que no se sabrá hasta compilar(llamadas a API) se da en objetos de configuración,eetc(todo lo que no venga de una API y sea posible resolver al transpilar ??)
+
+
+// NOTA: hasta la version 5.0 solo podia usar as const en la llamada a la funcion ,pero no en la definicion de la misma,sólo en su llamada.Esto cambió y ahora puedo tipar la función para forzar su entrada,mola
+
+function getConstantUserName<const T extends User>(user: T):T["name"]{
+  return user.name
+} // funcion con entrada constante,luego va a devolver un literal
+const user3 = getConstantUserName({name:"Hulio",age:33}) // ya no hace falta el as const,ya hace el narrowing la function
+
+Lo mismo si quiero un conjunto de valores:
+type Names = {names: readonly string[]};ojo con el readonly number
+function getNames<const T extends Names>(arg:T):T["names"]{
+  return arg.names;
+}
+const names = getNames({names:["alicia","macario","asinta"]}) <- names no es un arreglo de string sino una constante.Puede ser interesante de nuevo en objetos de configuración que no queremos que cambien.
+
+      VIDEO 05 ROUTER CON AUTOCOMPLETADO DINÁMICO
+
+Veamos un ejemplo de como crear las rutas de una aplicación con const type parameters:
+/ ejemplo de const type parameters para fijar las rutas de la app
+export type Route = {
+  name: string;
+  path: string;
+  params: readonly string[];
+};
+
+// fijate como puedo recortar un union type que sean objetos a ciertos valores.Interesante
+type RouteNames = GeneratedRoutesType["name"];
+type PathNames = GeneratedRoutesType["path"];
+// Extract<T,Objecto> me va a permitir construir un nuevo type de otro type que parece que debe ser un union type.Extraerá en base a la condición del segundo genérico, luego Extract<T,{name:"courses"}>["params"] va a construir otro union type del union type original con el valor de courses en su propieda name y por ultimo entramos al valor de la key["params"] luego me va a dar solo el valor de params tras extraer y construir el nuevo type para ese caso(que es ["category"]) Ojo, construye un type, no un union type
+type RouteParams = Extract<GeneratedRoutesType, { name: "courses" }>["params"];
+
+function buildRouter<const T extends Route>(routes: T[]) {
+  const getRoute = <
+    // o login o courses,fijate que se refiere al valor
+    RouteName extends T["name"],
+    // el valor que tenga params,de ese nuevo tipo que concuerde con el primer argumento,el name.wtf!
+    RouteParams extends Extract<T, { name: RouteName }>["params"],
+  >(
+    name: RouteName,
+    // dado que RouteParams simplemente devuelve el valor de params para ese nuevo tipo segun su condición,etc,ese valor es un arreglo,asi que { [key in RouteParams[number]:string] } va a pasar a objeto ese arreglo,con las keys que sean las [key in RouteParams[number]]:string <- y ese number?
+    params: { [key in RouteParams[number]]: string },
+  ): string => {
+    // pillamos el path
+    const route = routes.find((n) => n.name && n.name === name)!.path;
+    Object.entries<string>(params).forEach(([key, value]) => {
+      route.replace(`:${key}`, value);
+    });
+    return route;
+  };
+  return { getRoute };
+}
+
+// Routename y RouteParams son tipos que nos inventamos sobre la marcha,para tipar los parametros
+const myFunction = <T, R>(arg1: T, arg2: R) => {};
+
+// fijate que además es una función interna,que ya accede al T externo:
+const buildRouter2 = <const T extends Route>(routes: T[]): string => {
+  const anotherFunction = <X extends T["name"], Y extends Extract<T, { name: X }>["params"]>(
+    name: X,
+    params: { [key in Y[number]]: string },
+  ): string => {
+    return routes[0].name;
+  };
+  return "asinto";
+};
+
+// Ejemplo de narrowing explicando el porqué funciona la firma anterior
+type GeneratedRoutesType =
+  | { name: "login"; path: "/login"; params: [""] }
+  | { name: "courses"; path: "/courses"; params: ["category", "access"] };
+
+const { getRoute } = buildRouter([
+  {
+    name: "login",
+    path: "/login",
+    params: [],
+  },
+  {
+    name: "courses",
+    path: "/courses/:category",
+    params: ["category", "access"],
+  },
+]);
+// fijate que ahora getRoute ya no pide dos argumentos cualquiera, sino que pide objetos literales,y además segun que argumento sea,pedirá category,etc .Sinceramente es bonito pero no parece útil
+const route = getRoute("courses", { category: "category", access: "none" });
+
+Sin embargo Isma ve alguna limitación que arreglaremos en el siguiente ejemplo creando un fetcher:
+
+      VIDEO 06 FETCHER PARA NUESTRA API
+
+Vamos a crear un fetcher,una funcion que nos enmascare el acceso a nuestras API.Realmente no es tan complicado,asinto.Lo primero es crear un tipo para el Endpoint:
+
+type Endpoint = {
+  name:string;
+  url:string;
+  payload: new (...params:any) => EndpointPayload; <- clase 
+}
+
+function setupFetcher<
+  const GetEndpoint extends Endpoint,
+  const PostEndpoint extends Endpoint
+  >(
+    endpoints: { get: GetEndpoint[]; post: PostEndpoint[]}
+  ){
+    const endpointToNameUrl = (method: keyof typeof endpoints,name:string) => {
+      const endpoints = [endpoints.get,endpoints.post] as const;
+      const endpoint = endpoints.map((t:Array<Endpoint>) => t.find((x) => x.name === name));
+      if(!endpoint[0]) return xxx;
+      return endpoint![0].url;
+    }
+    const post<
+    TName extends PostEndpoint["name],
+    fijate como el Extract realmente me hace de filter
+    TPayload extends Extract<PostEndpoint,{name:TName}>["payload]
+    >(name:TName,payload: InstanceType<TPayload>){
+      console.log(endpointNameToUrl("post", name), payload.toString());
+    }
+
+    return { post } <- aqui iria el resto, get,delete,put,etc
+  }
+
+  const api = setupFetcher({
+    get:[], <- rutas GET
+    post: [
+      {
+        name:"createUser",
+        url: "/api/user",
+        payload: CreateUserPayload, <- clase para crear un User
+      },
+      {
+        name: "createCourse",
+        url: "/api/course",
+        payload: CreateCoursePayload
+      }
+    ]
+  })
+
+// al final en el dia a dia esto sería lo que implementariamos todos cuando quisieramos hacer una llamada a la api.Lo de arriba sería hacerlo una primera vez y ya.Parece interesante todo esto( sobre todo si le intregraramos la gestión de errores tmb)
+api.post("createCourse",new CreateCoursePayload("sdfas",new Date("2020-02-02")))
+api.post("createUser",new CreateUserPayload("curso"))
+
+Fijate que si llamo a una ruta solo me va a dejar pasar una instancia del payload que tengamos estipulado en la llamada de configuración del fetcher.Desde luego sería un approach interesante a seguir y llevar hasta el límite
+
+      VIDEO 07 MEJORA EL TIPADO DE MIS VARIABLES CON LOS OPERADORES AS-SATISFIES O :
+
+Typescript 4.9 ha introducido un nuevo operador para validar el tipo de una expresión determinada.Partamos de un ejemplo sencillo:
+
+type Routes = {[key:string]:Route};
+type Route= { path:string; children?:Routes}
+
+
+const routes: Routes = {
+  AUTH: {
+    path: "/auth",
+  },
+  LIST: {
+    path: "/list",
+  },
+  PATATA:{
+    path:"patata"
+  }
+};
+
+routes.AUTH.path
+routes.CUALQUIER_COSA.path
+
+Esto no funciona del todo bien,ya que puedo poner routes.XXXX.path y el interprete no da fallo,pues sigue siendo un [key:string].Esto sería una forma básica o tradicional de tipar las rutas,pero queremos ir un paso más allá.
+
+NOTA: no se recomienda usar 'as' ya que estoy cambiando un type en caliente,por ejemplo:
+const routes = {} as Routes; <- esto que es? un objeto vacio como Routes? no tiene sentido
+Obviamente, si que puedo usarlo cuando sé perfectamente que el casteo es correcto,etc
+
+Es aqui donde entra el operador 'satisfies',ya que no sobreescribe el tipo, no se pone por encima bruscamente como hace el 'as'.
+
+const routes = {
+  AUTH: {
+    path: "/auth",
+  },
+  LIST: {
+    path: "/list",
+  },
+  PATATA:{
+    path:"patata"
+  }
+} satisfies Routes;
+
+ahora ya no podré usar routes.ANYTHING.path 
+IMPORTANTE: si tipo el objeto despues no puedo tiparlo antes tmb(const routes: Routes = {} satisfies Routes va a pillar primero el operador :Routes).
+
+SUPERTIP: incluso puedo usar as const satifies Type para que ademas sea todo readonly y deje todo super narrow:
+
+const routes = {
+  AUTH: {
+    path: "/auth",
+  },
+  LIST: {
+    path: "/list",
+  },
+  PATATA:{
+    path:"patata"
+  }
+} as const satisfies Routes;
+
+Esto deja todo asi,con tipos literales no cambiables, que realmentes es lo que vamos a querer:
+const routes: {
+    readonly AUTH: {
+        readonly path: "/auth";
+    };
+    readonly LIST: {
+        readonly path: "/list";
+    };
+    readonly PATATA: {
+        readonly path: "patata";
+    };
+}
+Desde luego tengo que usar todo esto mucho más,y sobre todo en objetos de configuración.Ojalá me toque con gente muy top
+TIP: saber incluso en tiempo de desarrollo el valor del path o cuales puedo introducir y cuales no es la manera más rápida de programar y más sencilla,desde luego
+
+    VIDEO 08 MEJORANDO EL NARROWING DE LOS OBJETOS DE CONFIGURACION CON SATISFIES
+
+Otra de las propiedades de satisfies es que intenta siempre asignar el tipo más específico posible a partir del valor que se está validando
+Es por ello que cuando tengamos un union type satisfies hará el narrowing directamente obteniendo el tipo más especifico de los posibles valores suministrados:
+
+type User = {
+  contact: number | `${string}@${string}`;
+};
+
+const Javi = {
+  contact: "paco@email",
+} satisfies User;
+const firstEmailLetter = Javi.contact.charAt(0); <- sabe bajar hasta el tipo de contact, no lo sabría con const Javi:User = {};
+
+TIP: una tecnica importante al trabajar con tipos en Typescript es el proceso conocido como estrechamiento de tipos( type narrowing).Type narrowing es el proceso de afirmar qué tipo de variable está en una parte particular del flujo de datos
+En resumen el narrowing es el if(name)...
+El operador satisfies cambia mucho la forma de programar pero parece la ostia.Los const type parameters tmb tienen buena pinta
+Seguir por cursos de Typescript avanzado con estos dos cracks
+
+1- Patrones de diseño creacionales
+2- Typescript avanzado: mas alla de any
+3- React desde 0 aplicando buenas prácticas
+3. Arquitectura hexagonal
